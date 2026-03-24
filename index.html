@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>GYMRATYTG</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<style>
+body { margin: 0; padding: 0; background: #000; overflow: hidden; font-family: sans-serif; }
+#map { height: 100vh; width: 100vw; }
+
+#panel {
+position: absolute;
+top: 10px;
+left: 10px;
+right: 10px;
+max-width: 420px;
+background: rgba(255, 255, 255, 0.9);
+padding: 10px;
+border-radius: 12px;
+z-index: 1000;
+display: flex;
+gap: 6px;
+box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+
+input {
+padding: 10px;
+border: 1px solid #ccc;
+border-radius: 6px;
+width: 60px;
+flex-grow: 1;
+font-size: 14px;
+}
+
+button {
+padding: 10px;
+border: none;
+border-radius: 6px;
+cursor: pointer;
+font-weight: bold;
+font-size: 11px;
+text-transform: uppercase;
+}
+
+.btn-go { background: #27ae60; color: white; flex-grow: 1; }
+.btn-clear { background: #7f8c8d; color: white; }
+
+/* Poprawka pod bardzo małe ekrany */
+@media (max-width: 400px) {
+#panel { flex-wrap: wrap; }
+input { width: 40%; }
+.btn-go, .btn-clear { width: 45%; flex-grow: 1; }
+}
+</style>
+</head>
+<body>
+
+<div id="panel">
+<input id="lat" type="number" step="any" placeholder="Szer.">
+<input id="lng" type="number" step="any" placeholder="Dł.">
+<button class="btn-go" onclick="go()">Lecimy</button>
+<button class="btn-clear" onclick="resetMap()">Wyczyść</button>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+// Start: Tarnowskie Góry
+const tgCoords = [50.4433, 18.8561];
+
+// Inicjalizacja z opcjami pod mobile i płynność
+const map = L.map('map', {
+zoomControl: false,
+preferCanvas: true,
+tap: false // Naprawia problemy z klikaniem w niektórych przeglądarkach mobilnych
+}).setView(tgCoords, 15);
+
+// Zoom w prawym dolnym rogu (wygodniej dla kciuka)
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+// Satelita Esri - z wymuszonym HTTPS i buforowaniem przeciw czarnym kwadratom
+const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+attribution: 'Esri Satellite',
+maxZoom: 19,
+keepBuffer: 10, // Większy bufor = mniej czarnych dziur przy locie
+updateWhenIdle: false, // Pobieraj w trakcie ruchu
+crossOrigin: true // Ważne dla niektórych przeglądarek mobilnych
+}).addTo(map);
+
+let marker;
+
+function go() {
+const lat = parseFloat(document.getElementById('lat').value);
+const lng = parseFloat(document.getElementById('lng').value);
+
+if (isNaN(lat) || isNaN(lng)) {
+alert("Wpisz poprawne dane!");
+return;
+}
+
+const target = [lat, lng];
+if (marker) map.removeLayer(marker);
+marker = L.marker(target).addTo(map);
+
+// KROK 1: Małe oddalenie (do 15, żeby nie widzieć czarnych pól)
+map.flyTo(target, 15, {
+duration: 1.4,
+easeLinearity: 0.25
+});
+
+// KROK 2: Nurkowanie do celu (zoom 19)
+map.once('moveend', function() {
+map.flyTo(target, 19, {
+duration: 1.2
+});
+});
+}
+
+function resetMap() {
+document.getElementById('lat').value = '';
+document.getElementById('lng').value = '';
+if (marker) {
+map.removeLayer(marker);
+marker = null;
+}
+// Powrót do Tarnowskich Gór
+map.flyTo(tgCoords, 15, { duration: 1.5 });
+}
+
+// Kluczowe dla telefonów: wymuszamy przeliczenie rozmiaru po załadowaniu
+window.onload = function() {
+setTimeout(() => {
+map.invalidateSize();
+}, 800);
+};
+</script>
+
+</body>
+</html>
